@@ -1,0 +1,84 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [pgTrgm(map: "pg_trgm")]
+}
+
+// Nomenclatura: nomes de tabela/coluna em snake_case no banco (via @map/@@map),
+// nomes de campo em camelCase no Prisma Client (idiomático em TS/JS).
+
+model Cliente {
+  id        Int      @id @default(autoincrement())
+  nome      String   @db.VarChar(255)
+  email     String   @unique @db.VarChar(320)
+  telefone  String   @db.VarChar(20)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  pedidos Pedido[]
+
+  // Índice GIN com pg_trgm: acelera de verdade a busca `contains`
+  // (ILIKE '%termo%') usada no filtro por nome do cliente — um B-tree comum
+  // não serve pra esse padrão de busca (wildcard nas duas pontas).
+  @@index([nome(ops: raw("gin_trgm_ops"))], type: Gin)
+  @@map("clientes")
+}
+
+model Item {
+  id            Int      @id @default(autoincrement())
+  nome          String   @db.VarChar(255)
+  descricao     String?  @db.VarChar(500)
+  valorUnitario Decimal  @map("valor_unitario") @db.Decimal(10, 2)
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  itensPedido OrderItem[]
+
+  @@map("itens")
+}
+
+model Pedido {
+  id        Int      @id @default(autoincrement())
+  data      DateTime @default(now())
+  clienteId Int      @map("cliente_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  cliente Cliente     @relation(fields: [clienteId], references: [id])
+  itens   OrderItem[]
+
+  // Índices para os filtros obrigatórios: período (data) e cliente (FK).
+  @@index([data])
+  @@index([clienteId])
+  @@map("pedidos")
+}
+
+// Tabela de associação Pedido<->Item (N:N) que preserva quantidade e o valor
+// unitário praticado no momento da venda, já que o valor do Item pode mudar
+// ao longo do tempo e o pedido deve manter o valor histórico (ver README).
+model OrderItem {
+  id                     Int     @id @default(autoincrement())
+  pedidoId               Int     @map("pedido_id")
+  itemId                 Int     @map("item_id")
+  quantidade             Int
+  valorUnitarioPraticado Decimal @map("valor_unitario_praticado") @db.Decimal(10, 2)
+
+  pedido Pedido @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
+  item   Item   @relation(fields: [itemId], references: [id])
+
+  // @@unique([pedidoId, itemId]) já cria um índice composto começando por
+  // pedidoId — um @@index([pedidoId]) separado seria redundante (todo índice
+  // B-tree também serve buscas pelo seu prefixo esquerdo), só custando
+  // escrita extra sem ganho de leitura.
+  @@unique([pedidoId, itemId])
+  @@index([itemId])
+  @@map("order_item")
+}

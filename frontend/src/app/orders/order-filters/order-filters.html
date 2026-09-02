@@ -1,0 +1,65 @@
+<form class="order-filters" [formGroup]="form" (ngSubmit)="aplicarFiltro()">
+  <div class="order-filters__field">
+    <label class="order-filters__label" for="dataInicio">Data início</label>
+    <input class="order-filters__input" id="dataInicio" type="date" formControlName="dataInicio" />
+  </div>
+
+  <div class="order-filters__field">
+    <label class="order-filters__label" for="dataFim">Data fim</label>
+    <input class="order-filters__input" id="dataFim" type="date" formControlName="dataFim" />
+  </div>
+
+  <div class="order-filters__field">
+    <label class="order-filters__label" for="valorMin">Valor mínimo</label>
+    <input
+      class="order-filters__input"
+      id="valorMin"
+      type="number"
+      min="0"
+      step="0.01"
+      placeholder="R$ 0,00"
+      formControlName="valorMin"
+    />
+  </div>
+
+  <div class="order-filters__field">
+    <label class="order-filters__label" for="valorMax">Valor máximo</label>
+    <input
+      class="order-filters__input"
+      id="valorMax"
+      type="number"
+      min="0"
+      step="0.01"
+      placeholder="R$ 0,00"
+      formControlName="valorMax"
+    />
+  </div>
+
+  <div class="order-filters__field order-filters__field--grow">
+    <label class="order-filters__label" for="nomeCliente">Nome do cliente</label>
+    <input
+      class="order-filters__input"
+      id="nomeCliente"
+      type="text"
+      placeholder="Buscar por nome"
+      formControlName="nomeCliente"
+    />
+  </div>
+
+  <div class="order-filters__actions">
+    <button class="order-filters__button order-filters__button--primary" type="submit">
+      Filtrar
+    </button>
+    <button
+      class="order-filters__button order-filters__button--ghost"
+      type="button"
+      (click)="limparFiltro()"
+    >
+      Limpar
+    </button>
+  </div>
+
+  @if (intervaloDeDataInvalido) {
+    <p class="order-filters__error">A data início não pode ser depois da data fim.</p>
+  }
+</form>

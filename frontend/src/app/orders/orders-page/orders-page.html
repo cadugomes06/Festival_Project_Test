@@ -1,0 +1,29 @@
+@if (ordersService.vm$ | async; as vm) {
+  <div class="orders-page">
+    <header class="orders-page__header">
+      <h1 class="orders-page__title">Pedidos do festival</h1>
+      <button class="orders-page__logout" type="button" (click)="onLogout()">Sair</button>
+    </header>
+
+    <app-order-filters (filterChange)="onFilterChange($event)" />
+
+    <section class="orders-page__content">
+      @if (vm.loadingOrders) {
+        <app-loading-spinner label="Carregando pedidos..." />
+      } @else if (vm.ordersError; as mensagemErro) {
+        <app-error-message [message]="mensagemErro" />
+      } @else {
+        <app-order-list [orders]="vm.orders" (selectOrder)="onSelectOrder($event)" />
+      }
+    </section>
+
+    @if (vm.selectedOrderId !== null) {
+      <app-order-detail-modal
+        [order]="vm.selectedOrder"
+        [loading]="vm.loadingDetail"
+        [error]="vm.detailError"
+        (close)="onCloseModal()"
+      />
+    }
+  </div>
+}

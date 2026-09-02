@@ -1,0 +1,32 @@
+@if (orders().length === 0) {
+  <p class="order-list__empty">Nenhum pedido encontrado para os filtros selecionados.</p>
+} @else {
+  <table class="order-list">
+    <thead class="order-list__head">
+      <tr>
+        <th>Data</th>
+        <th>Cliente</th>
+        <th>Valor total</th>
+        <th aria-label="Ações"></th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (order of orders(); track order.id) {
+        <tr class="order-list__row" (click)="selectOrder.emit(order.id)">
+          <td data-label="Data">{{ order.data | date: 'dd/MM/yyyy HH:mm' }}</td>
+          <td data-label="Cliente">{{ order.nomeCliente }}</td>
+          <td data-label="Valor total">{{ order.valorTotal | currency: 'BRL' }}</td>
+          <td data-label="" class="order-list__action">
+            <button
+              type="button"
+              class="order-list__details-button"
+              (click)="$event.stopPropagation(); selectOrder.emit(order.id)"
+            >
+              Ver detalhes
+            </button>
+          </td>
+        </tr>
+      }
+    </tbody>
+  </table>
+}

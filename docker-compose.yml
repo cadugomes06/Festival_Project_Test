@@ -1,0 +1,15 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: festival_pedidos
+    ports:
+      - '5432:5432'
+    volumes:
+      - festival_pedidos_data:/var/lib/postgresql/data
+
+volumes:
+  festival_pedidos_data:

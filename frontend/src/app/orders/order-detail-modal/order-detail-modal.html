@@ -1,0 +1,82 @@
+<div class="order-modal-overlay" (click)="close.emit()">
+  <div
+    class="order-modal"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="order-modal-title"
+    (click)="$event.stopPropagation()"
+  >
+    <header class="order-modal__header">
+      <h2 class="order-modal__title" id="order-modal-title">
+        Pedido {{ order() ? '#' + order()!.id : '' }}
+      </h2>
+      <button
+        type="button"
+        class="order-modal__close"
+        aria-label="Fechar"
+        (click)="close.emit()"
+      >
+        ✕
+      </button>
+    </header>
+
+    <div class="order-modal__body">
+      @if (loading()) {
+        <app-loading-spinner label="Carregando detalhes do pedido..." />
+      } @else if (error(); as mensagemErro) {
+        <app-error-message [message]="mensagemErro" />
+      } @else if (order(); as pedido) {
+        <section class="order-modal__section">
+          <h3 class="order-modal__section-title">Dados do comprador</h3>
+          <dl class="order-modal__customer">
+            <div>
+              <dt>Nome</dt>
+              <dd>{{ pedido.cliente.nome }}</dd>
+            </div>
+            <div>
+              <dt>E-mail</dt>
+              <dd>{{ pedido.cliente.email }}</dd>
+            </div>
+            <div>
+              <dt>Telefone</dt>
+              <dd>{{ pedido.cliente.telefone }}</dd>
+            </div>
+            <div>
+              <dt>Data do pedido</dt>
+              <dd>{{ pedido.data | date: 'dd/MM/yyyy HH:mm' }}</dd>
+            </div>
+          </dl>
+        </section>
+
+        <section class="order-modal__section">
+          <h3 class="order-modal__section-title">Itens selecionados</h3>
+          <table class="order-modal__items">
+            <thead>
+              <tr>
+                <th>Item</th>
+                <th>Qtd.</th>
+                <th>Valor unit.</th>
+                <th>Subtotal</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (item of pedido.itens; track item.itemId) {
+                <tr>
+                  <td>{{ item.nome }}</td>
+                  <td>{{ item.quantidade }}</td>
+                  <td>{{ item.valorUnitarioPraticado | currency: 'BRL' }}</td>
+                  <td>{{ item.subtotal | currency: 'BRL' }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </section>
+
+        <footer class="order-modal__total">
+          <span>Total do pedido</span>
+          <strong>{{ pedido.valorTotal | currency: 'BRL' }}</strong>
+        </footer>
+      }
+    </div>
+  </div>
+</div>

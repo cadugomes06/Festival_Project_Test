@@ -1,0 +1,9 @@
+<div class="error-message" role="alert">
+  <span class="error-message__icon" aria-hidden="true">⚠</span>
+  <span class="error-message__text">{{ message() }}</span>
+  @if (showRetry()) {
+    <button type="button" class="error-message__retry" (click)="retry.emit()">
+      {{ retryLabel() }}
+    </button>
+  }
+</div>
