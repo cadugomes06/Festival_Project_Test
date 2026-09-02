@@ -51,6 +51,9 @@ API sobe em `http://localhost:3000`. Endpoints:
 - `GET /orders/:id` — detalhe do pedido (itens + comprador) (idem)
 - `GET /health` — healthcheck
 
+Todos os endpoints têm rate limit de 100 req/min por IP (ver seção
+[Autenticação](#autenticação) → Rate limiting).
+
 ### 3. Frontend
 
 ```bash
@@ -232,6 +235,16 @@ padrão dos outros formulários do projeto (Reactive Forms + SCSS/BEM).
 "lembrar-me" — o JWT expira (`JWT_EXPIRES_IN`, 1h por padrão) e o usuário
 loga de novo. Suficiente para o escopo de "proteger a tela de pedidos", não
 para um sistema de autenticação de produção.
+
+**Rate limiting** (`@nestjs/throttler`, `app.module.ts`): 100 requisições por
+IP a cada 60 segundos, aplicado globalmente via `APP_GUARD` — o padrão
+documentado do próprio `@nestjs/throttler`, em vez de decorar cada
+controller manualmente. Motivo principal: `POST /auth/login` usa uma
+credencial fixa, então tentativas de senha ilimitadas seriam o vetor de
+ataque mais óbvio contra ela; o mesmo guard também cobre os demais
+endpoints contra uso abusivo. Limite generoso o bastante para não incomodar
+uso normal da tela (a cada requisição de listagem/detalhe), mas suficiente
+para tornar força bruta impraticável.
 
 ---
 
