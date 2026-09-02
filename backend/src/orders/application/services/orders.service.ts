@@ -25,7 +25,7 @@ export class OrdersService {
 
   async filterOrders(filter: FilterOrdersDto): Promise<OrderSummaryDto[]> {
     const registros = await this.ordersRepository.findMany({
-      dataInicio: filter.dataInicio ? new Date(filter.dataInicio) : undefined,
+      dataInicio: filter.dataInicio ? this.inicioDoDia(filter.dataInicio) : undefined,
       dataFim: filter.dataFim ? this.fimDoDia(filter.dataFim) : undefined,
       nomeCliente: filter.nomeCliente,
     });
@@ -89,15 +89,23 @@ export class OrdersService {
   }
 
   /**
-   * `dataFim` chega como data pura (ex: "2026-08-12", do `<input type="date">`
-   * do front-end). `new Date('2026-08-12')` vira meia-noite UTC daquele dia —
-   * usado direto como limite superior (`lte`), excluiria praticamente o dia
-   * inteiro. Avançamos para o último milissegundo do dia para incluir o dia
-   * inteiro no filtro, do jeito que o usuário espera ao escolher "data fim".
+   * `dataInicio`/`dataFim` chegam como data pura (ex: "2026-08-12", do
+   * `<input type="date">` do front-end) e representam um dia no fuso do
+   * festival — Brasil, fixo em `-03:00` (o país não usa mais horário de
+   * verão desde 2019; o app já assume um único fuso, o mesmo motivo do
+   * `LOCALE_ID` pt-BR fixo no frontend). Sem fixar esse offset,
+   * `new Date('2026-08-12')` vira meia-noite em UTC, que já é "12/08 às
+   * 21h" no horário do Brasil: um pedido feito de fato às 22h (local) do
+   * dia 12/08 ficaria fora do filtro `dataFim=2026-08-12`, mesmo a tela
+   * mostrando esse pedido como sendo do dia 12/08 (o `DatePipe` do Angular
+   * converte o mesmo timestamp UTC para o fuso local do navegador).
    */
+  private inicioDoDia(data: string): Date {
+    return new Date(`${data}T00:00:00-03:00`);
+  }
+
   private fimDoDia(data: string): Date {
-    const inicioDoDia = new Date(data);
-    return new Date(inicioDoDia.getTime() + 24 * 60 * 60 * 1000 - 1);
+    return new Date(`${data}T23:59:59.999-03:00`);
   }
 
   /**

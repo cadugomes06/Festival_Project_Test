@@ -16,6 +16,7 @@ export class OrderDetailModal {
   readonly error = input<string | null>(null);
 
   readonly close = output<void>();
+  readonly retry = output<void>();
 
   @HostListener('document:keydown.escape')
   onEscape(): void {

@@ -96,7 +96,7 @@ describe('OrdersService', () => {
     ],
   });
 
-  it('repassa data início e nome do cliente ao repositório sem alteração', async () => {
+  it('converte dataInicio para meia-noite no fuso do Brasil (-03:00), não UTC', async () => {
     const repository = new FakeOrdersRepository([pedidoBarato]);
     const service = new OrdersService(repository);
 
@@ -105,20 +105,23 @@ describe('OrdersService', () => {
       nomeCliente: 'Ana',
     });
 
-    expect(repository.lastFilter?.dataInicio).toEqual(new Date('2026-08-01'));
+    expect(repository.lastFilter?.dataInicio).toEqual(
+      new Date('2026-08-01T00:00:00-03:00'),
+    );
     expect(repository.lastFilter?.nomeCliente).toBe('Ana');
   });
 
-  it('estende dataFim até o último milissegundo do dia, para incluir o dia inteiro', async () => {
+  it('estende dataFim até o último milissegundo do dia no fuso do Brasil, para incluir o dia inteiro', async () => {
     const repository = new FakeOrdersRepository([pedidoBarato]);
     const service = new OrdersService(repository);
 
     await service.filterOrders({ dataFim: '2026-08-31' });
 
-    // Sem esse ajuste, um pedido feito às 23h de "2026-08-31" ficaria de
-    // fora do filtro, porque new Date('2026-08-31') é meia-noite UTC.
+    // Sem fixar o fuso -03:00, um pedido feito às 22h (local) de
+    // "2026-08-31" (= 2026-09-01T01:00:00Z) ficaria de fora do filtro,
+    // porque new Date('2026-08-31') é meia-noite em UTC, não no Brasil.
     expect(repository.lastFilter?.dataFim).toEqual(
-      new Date('2026-08-31T23:59:59.999Z'),
+      new Date('2026-08-31T23:59:59.999-03:00'),
     );
   });
 

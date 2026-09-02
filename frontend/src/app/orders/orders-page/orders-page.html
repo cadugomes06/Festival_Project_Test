@@ -11,7 +11,7 @@
       @if (vm.loadingOrders) {
         <app-loading-spinner label="Carregando pedidos..." />
       } @else if (vm.ordersError; as mensagemErro) {
-        <app-error-message [message]="mensagemErro" />
+        <app-error-message [message]="mensagemErro" [showRetry]="true" (retry)="onRetryOrders()" />
       } @else {
         <app-order-list [orders]="vm.orders" (selectOrder)="onSelectOrder($event)" />
       }
@@ -23,6 +23,7 @@
         [loading]="vm.loadingDetail"
         [error]="vm.detailError"
         (close)="onCloseModal()"
+        (retry)="onRetryDetail()"
       />
     }
   </div>

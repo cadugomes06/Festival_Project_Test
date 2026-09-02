@@ -91,18 +91,18 @@ vs. convenção idiomática do TypeScript).
 | ------------------------------- | ------------------------ | ------------------------------------------------------------------------- |
 | `pedidos_data_idx`              | `Pedido.data`             | Filtro obrigatório por período (`gte`/`lte`) e o `orderBy` da listagem.  |
 | `pedidos_cliente_id_idx`        | `Pedido.clienteId` (FK)   | Postgres não indexa FK automaticamente; sem isso o join com `Cliente` e a checagem de integridade referencial fariam table scan. |
-| `clientes_nome_idx`             | `Cliente.nome`            | Filtro obrigatório por nome do cliente.                                  |
+| `clientes_nome_idx`             | `Cliente.nome`, tipo **GIN** com extensão `pg_trgm` | Filtro obrigatório por nome do cliente, feito via `ILIKE '%termo%'` (busca por substring). |
 | `order_item_item_id_idx`        | `OrderItem.itemId` (FK)   | Mesma razão do índice de `clienteId`: permite checar rapidamente se um `Item` tem pedidos associados antes de um delete. |
 
-O índice de `nome` é um B-tree comum — bom para igualdade e busca por
-prefixo, mas **não** acelera `ILIKE '%termo%'` (busca por substring, que é o
-que a API de fato faz). Para esse caso o caminho correto em produção seria um
-índice GIN com a extensão `pg_trgm`. Não incluí isso aqui de propósito: a
-extensão exigiria habilitar uma preview feature do Prisma
-(`postgresqlExtensions`) e adiciona uma dependência de banco sem um cenário
-real de volume que justifique — decisão consciente de não over-engineering,
-documentada para poder ser defendida e revertida facilmente se o volume de
-dados crescer.
+**Por que GIN + `pg_trgm` no índice de `nome`, e não um B-tree comum**: um
+B-tree é bom para igualdade e busca por prefixo, mas **não** acelera
+`ILIKE '%termo%'` — o padrão de busca usado no filtro por nome, com wildcard
+nas duas pontas. A extensão `pg_trgm` indexa trigramas do texto, o que faz um
+índice GIN acelerar de verdade esse tipo de busca por substring. O custo é
+habilitar a preview feature `postgresqlExtensions` do Prisma
+(`schema.prisma` → `generator client` e `datasource db`) e a extensão
+`CREATE EXTENSION pg_trgm` no banco (já na migration versionada) — pouco
+custo para o ganho real num filtro obrigatório do teste.
 
 **Índice que *não* existe de propósito**: `OrderItem` tem
 `@@unique([pedidoId, itemId])`, que já cria um índice composto começando por

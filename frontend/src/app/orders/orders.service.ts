@@ -98,8 +98,21 @@ export class OrdersService {
     this.filter$$.next(filter);
   }
 
+  /** Refaz a última busca de pedidos (botão "Tentar novamente" do erro). */
+  retryOrders(): void {
+    this.filter$$.next(this.filter$$.value);
+  }
+
   selectOrder(id: number): void {
     this.selectedOrderId$$.next(id);
+  }
+
+  /** Refaz a busca do detalhe selecionado (botão "Tentar novamente" do erro). */
+  retryDetail(): void {
+    const id = this.selectedOrderId$$.value;
+    if (id !== null) {
+      this.selectedOrderId$$.next(id);
+    }
   }
 
   clearSelectedOrder(): void {

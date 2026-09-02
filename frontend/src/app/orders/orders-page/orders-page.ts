@@ -25,12 +25,20 @@ export class OrdersPage {
     this.ordersService.updateFilter(filter);
   }
 
+  onRetryOrders(): void {
+    this.ordersService.retryOrders();
+  }
+
   onSelectOrder(id: number): void {
     this.ordersService.selectOrder(id);
   }
 
   onCloseModal(): void {
     this.ordersService.clearSelectedOrder();
+  }
+
+  onRetryDetail(): void {
+    this.ordersService.retryDetail();
   }
 
   onLogout(): void {
