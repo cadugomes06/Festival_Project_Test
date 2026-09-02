@@ -38,14 +38,7 @@ function criarPedido(overrides: {
       itemId: item.itemId,
       quantidade: item.quantidade,
       valorUnitarioPraticado: new Prisma.Decimal(item.valorUnitarioPraticado),
-      item: {
-        id: item.itemId,
-        nome: item.nome,
-        descricao: null,
-        valorUnitario: new Prisma.Decimal(item.valorUnitarioPraticado),
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
+      item: { nome: item.nome },
     })),
   };
 }

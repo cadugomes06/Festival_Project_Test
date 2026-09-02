@@ -6,11 +6,17 @@ import { Prisma } from '@prisma/client';
  * com o Item associado). Usamos o tipo gerado pelo Prisma (via
  * `Prisma.PedidoGetPayload`) só aqui, na borda entre Infrastructure e
  * Application — o restante da camada de aplicação e o domínio não conhecem o Prisma.
+ *
+ * `item` traz só `nome` via `select`: é o único campo de `Item` que a
+ * aplicação usa (o valor do pedido vem de `valorUnitarioPraticado`, já
+ * gravado no próprio `OrderItem` — ver README). Buscar a linha inteira do
+ * `Item` (`descricao`, `valorUnitario`, timestamps) em toda listagem/detalhe
+ * de pedido seria over-fetching sem uso.
  */
 export type PedidoComRelacoes = Prisma.PedidoGetPayload<{
   include: {
     cliente: true;
-    itens: { include: { item: true } };
+    itens: { include: { item: { select: { nome: true } } } };
   };
 }>;
 

@@ -9,7 +9,10 @@ import {
 
 const INCLUDE_RELACOES = {
   cliente: true,
-  itens: { include: { item: true } },
+  // Só `nome` do Item: é o único campo que a aplicação usa (ver
+  // PedidoComRelacoes) — evita trazer descricao/valorUnitario/timestamps
+  // do Item em toda listagem e detalhe de pedido.
+  itens: { include: { item: { select: { nome: true } } } },
 } satisfies Prisma.PedidoInclude;
 
 /**
