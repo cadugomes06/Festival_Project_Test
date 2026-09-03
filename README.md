@@ -216,7 +216,7 @@ JWT como diferencial — decisão consciente de escopo, não algo esquecido.
 **Credencial única fixa, não uma tabela de usuários**: o domínio deste teste
 (Cliente/Item/Pedido) não tem conceito de usuário/autenticação. Criar uma
 entidade `User` só para proteger a tela seria escopo extra sem necessidade
-real — o próprio CLAUDE.md do projeto pede para não introduzir ferramentas
+real — o próprio enunciado do teste pede para não introduzir ferramentas
 "porque é desejável" sem justificativa. Em vez disso, backend valida contra
 `ADMIN_EMAIL`/`ADMIN_PASSWORD_HASH` (variáveis de ambiente). A senha nunca
 fica em texto puro, nem no `.env`: o que é armazenado é o hash bcrypt
