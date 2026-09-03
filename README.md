@@ -107,8 +107,7 @@ porque um B-tree é bom para igualdade e busca por prefixo, mas não acelera
 nas duas pontas. A extensão `pg_trgm` indexa trigramas do texto, e é isso
 que faz um índice GIN acelerar de verdade esse tipo de busca por substring.
 Pra validar que a escolha realmente compensa, rodei um teste com 500 mil
-clientes sintéticos (dentro de uma transação com `ROLLBACK`, sem sujar o
-banco) comparando as duas estratégias: sem usar o índice, a busca levou
+clientes sintéticos comparando as duas estratégias: sem usar o índice, a busca levou
 ~79ms varrendo a tabela inteira; usando o GIN, caiu pra ~1,4ms, uma
 diferença de quase 60x que só cresce conforme a base aumenta. O custo dessa
 escolha foi baixo: habilitar a preview feature `postgresqlExtensions` do
@@ -148,20 +147,11 @@ orders.module.ts        "Wiring": liga a interface à implementação concreta.
 Organizei cada subpasta agrupando arquivos do mesmo tipo (um `services/`, um
 `controllers/`, um `repositories/`...) pensando em escala: hoje só existe um
 arquivo em cada uma, mas a estrutura já fica pronta pra um projeto maior, com
-múltiplos serviços/controllers/repositórios por módulo, sem precisar
-reorganizar nada depois. A única exceção proposital é `orders.module.ts`,
-que fica na raiz do módulo, porque é onde o Nest sempre espera encontrar o
-arquivo de módulo de uma feature, em qualquer projeto Nest.
+múltiplos serviços/controllers/repositórios por módulo.
 
 Optei por uma interface de repositório em vez de injetar o Prisma direto no
 service pensando em inversão de dependência (SOLID/DIP): `OrdersService`
-depende da abstração `OrdersRepository`, não da implementação Prisma. Na
-prática isso significa que `orders.service.spec.ts` testa a regra de negócio
-(cálculo de total, filtro por faixa de valor, 404) com um repositório *fake*
-em memória, sem precisar de banco de dados nos testes unitários. Um detalhe
-específico do Nest aqui: como interfaces TypeScript não existem em tempo de
-execução, o token de injeção precisa ser um `Symbol` (`ORDERS_REPOSITORY`),
-que é o padrão documentado no guia de "Custom providers" do Nest.
+depende da abstração `OrdersRepository`, não da implementação Prisma. 
 
 Uma decisão que vale destacar: o filtro por valor é aplicado em memória, não
 via SQL. O valor total do pedido é uma soma agregada sobre `order_item`
@@ -174,14 +164,9 @@ A paginação (`page`/`limit`, padrão 1/10) acontece logo depois, no mesmo
 passo em memória: como o filtro de valor já não é feito via SQL, `total` e
 `totalPages` (`GET /orders` devolve `{ data, total, page, limit, totalPages }`)
 precisam refletir o resultado já filtrado por data, cliente e valor, não o
-total geral de pedidos, então fatiar (`slice`) o array final foi mais simples
+total geral de pedidos, então fatiar o array final foi mais simples
 e correto do que tentar paginar só a consulta ao Prisma e filtrar valor
-depois (o que devolveria páginas com menos itens do que o `limit` pedido).
-Testei isso na prática rodando um `EXPLAIN ANALYZE` comparando as duas
-abordagens (ver seção de índices) antes de decidir; a diferença de
-performance entre agregar no banco (`HAVING`) ou em memória só compensa a
-partir de um volume que este teste não tem, e paginar depois do filtro de
-valor evita esse problema por completo.
+depois (o que devolveria páginas com menos itens do que o limite pedido).
 
 Pra dinheiro, usei `decimal.js` em vez de `number` puro: `OrderItemEntity`/
 `OrderEntity` fazem toda a matemática (subtotal, soma do total, comparação
@@ -198,7 +183,7 @@ Pro tratamento de erros, coloquei um filtro global (`HttpExceptionFilter`)
 que garante que toda resposta de erro, seja validação (400), não encontrado
 (404) ou falha inesperada (500), segue o mesmo formato JSON (`statusCode`,
 `path`, `timestamp`, `message`), em vez de deixar stack traces ou formatos
-inconsistentes vazarem pro frontend.
+inconsistentes vazarem pro frontend. Essa abordagem busca do banco todos os pedidos que passam pelo filtro de data/cliente antes de paginar, o que é aceitável para o volume esperado deste teste; numa base muito maior, a solução correta seria mover o cálculo do total para SQL (coluna computada, view materializada, ou agregação com SUM no próprio order_item), permitindo paginar via LIMIT/OFFSET direto no banco.
 
 Na validação, usei DTOs com `class-validator`/`class-transformer` e um
 `ValidationPipe` global com `whitelist: true` + `forbidNonWhitelisted: true`,
@@ -275,15 +260,6 @@ shared/   componentes reutilizáveis e sem estado (loading spinner, error messag
 orders/   a feature em si: OrdersApiService (HTTP puro), OrdersService (estado
           reativo), e os componentes (filtros, listagem, modal, página).
 ```
-
-Pro estado, fiquei só com RxJS puro em serviço: `OrdersService`
-(em `orders/orders.service.ts`) expõe um único `vm$` (view model)
-combinando listagem e detalhe, montado com `combineLatest` + `switchMap` +
-`startWith` + `catchError`. Modelei cada requisição assíncrona como *um*
-stream de estado (dado/loading/erro), em vez de vários `BehaviorSubject`s se
-atualizando uns aos outros, o que evita condições de corrida e emissões
-duplicadas dentro do `combineLatest`.
-
 A paginação entra nesse mesmo `vm$`: `OrdersService` guarda um
 `OrdersQuery` (filtro + `page`/`limit`) num único `BehaviorSubject`, em vez
 de um segundo estado separado pra página atual, porque trocar de página é
