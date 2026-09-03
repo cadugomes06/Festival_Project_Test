@@ -7,12 +7,27 @@ export interface OrderFilter {
   nomeCliente?: string;
 }
 
+/** Filtro + paginação: o que de fato vai pra API em `GET /orders`. */
+export interface OrdersQuery extends OrderFilter {
+  page: number;
+  limit: number;
+}
+
 /** Item da lista de pedidos (tabela principal). */
 export interface OrderSummary {
   id: number;
   data: string;
   nomeCliente: string;
   valorTotal: number;
+}
+
+/** Envelope de paginação devolvido por `GET /orders`. */
+export interface PaginatedOrders {
+  data: OrderSummary[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
 }
 
 export interface OrderDetailCliente {

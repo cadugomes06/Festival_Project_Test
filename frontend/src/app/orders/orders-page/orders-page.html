@@ -16,6 +16,13 @@
         <app-error-message [message]="mensagemErro" [showRetry]="true" (retry)="onRetryOrders()" />
       } @else {
         <app-order-list [orders]="vm.orders" (selectOrder)="onSelectOrder($event)" />
+        @if (vm.totalPages > 1) {
+          <app-pagination
+            [page]="vm.page"
+            [totalPages]="vm.totalPages"
+            (pageChange)="onPageChange($event)"
+          />
+        }
       }
     </section>
 

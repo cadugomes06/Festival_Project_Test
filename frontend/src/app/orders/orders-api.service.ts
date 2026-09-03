@@ -2,7 +2,7 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { API_BASE_URL } from '../core/config/api.config';
-import { OrderDetail, OrderFilter, OrderSummary } from '../core/models/order.model';
+import { OrderDetail, OrdersQuery, PaginatedOrders } from '../core/models/order.model';
 
 /**
  * Acesso HTTP puro à API de pedidos — sem estado, sem lógica de UI.
@@ -13,15 +13,15 @@ export class OrdersApiService {
   private readonly http = inject(HttpClient);
   private readonly baseUrl = `${API_BASE_URL}/orders`;
 
-  getOrders(filter: OrderFilter): Observable<OrderSummary[]> {
-    return this.http.get<OrderSummary[]>(this.baseUrl, { params: this.toHttpParams(filter) });
+  getOrders(query: OrdersQuery): Observable<PaginatedOrders> {
+    return this.http.get<PaginatedOrders>(this.baseUrl, { params: this.toHttpParams(query) });
   }
 
   getOrderById(id: number): Observable<OrderDetail> {
     return this.http.get<OrderDetail>(`${this.baseUrl}/${id}`);
   }
 
-  private toHttpParams(filter: OrderFilter): HttpParams {
+  private toHttpParams(filter: OrdersQuery): HttpParams {
     let params = new HttpParams();
 
     if (filter.dataInicio) {
@@ -39,6 +39,7 @@ export class OrdersApiService {
     if (filter.nomeCliente) {
       params = params.set('nomeCliente', filter.nomeCliente);
     }
+    params = params.set('page', filter.page).set('limit', filter.limit);
 
     return params;
   }

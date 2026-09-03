@@ -10,7 +10,7 @@ import {
 import { JwtAuthGuard } from '../../../auth/guards/jwt-auth.guard';
 import { FilterOrdersDto } from '../../application/dto/filter-orders.dto';
 import { OrderDetailDto } from '../../application/dto/order-detail.dto';
-import { OrderSummaryDto } from '../../application/dto/order-summary.dto';
+import { PaginatedOrdersDto } from '../../application/dto/paginated-orders.dto';
 import { OrdersService } from '../../application/services/orders.service';
 
 /**
@@ -29,9 +29,11 @@ export class OrdersController {
   constructor(private readonly ordersService: OrdersService) {}
 
   @Get()
-  @ApiOperation({ summary: 'Lista pedidos filtrados por data, faixa de valor e nome do cliente' })
-  @ApiOkResponse({ type: [OrderSummaryDto] })
-  findAll(@Query() filter: FilterOrdersDto): Promise<OrderSummaryDto[]> {
+  @ApiOperation({
+    summary: 'Lista pedidos filtrados por data, faixa de valor e nome do cliente, paginado',
+  })
+  @ApiOkResponse({ type: PaginatedOrdersDto })
+  findAll(@Query() filter: FilterOrdersDto): Promise<PaginatedOrdersDto> {
     return this.ordersService.filterOrders(filter);
   }
 

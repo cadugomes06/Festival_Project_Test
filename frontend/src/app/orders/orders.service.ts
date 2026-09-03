@@ -1,12 +1,17 @@
 import { Injectable, inject } from '@angular/core';
 import { BehaviorSubject, Observable, catchError, combineLatest, map, of, shareReplay, startWith, switchMap } from 'rxjs';
-import { OrderDetail, OrderFilter, OrderSummary } from '../core/models/order.model';
+import { OrderDetail, OrderFilter, OrderSummary, OrdersQuery } from '../core/models/order.model';
 import { OrdersApiService } from './orders-api.service';
+
+const PAGE_SIZE = 10;
 
 export interface OrdersViewModel {
   orders: OrderSummary[];
   loadingOrders: boolean;
   ordersError: string | null;
+  page: number;
+  totalPages: number;
+  total: number;
   selectedOrderId: number | null;
   selectedOrder: OrderDetail | null;
   loadingDetail: boolean;
@@ -15,6 +20,9 @@ export interface OrdersViewModel {
 
 interface OrdersRequestState {
   orders: OrderSummary[];
+  page: number;
+  totalPages: number;
+  total: number;
   loading: boolean;
   error: string | null;
 }
@@ -37,17 +45,36 @@ interface OrderDetailState {
 export class OrdersService {
   private readonly api = inject(OrdersApiService);
 
-  private readonly filter$$ = new BehaviorSubject<OrderFilter>({});
+  private readonly query$$ = new BehaviorSubject<OrdersQuery>({ page: 1, limit: PAGE_SIZE });
   private readonly selectedOrderId$$ = new BehaviorSubject<number | null>(null);
 
-  private readonly ordersState$: Observable<OrdersRequestState> = this.filter$$.pipe(
-    switchMap((filter) =>
-      this.api.getOrders(filter).pipe(
-        map((orders): OrdersRequestState => ({ orders, loading: false, error: null })),
-        startWith<OrdersRequestState>({ orders: [], loading: true, error: null }),
+  private readonly ordersState$: Observable<OrdersRequestState> = this.query$$.pipe(
+    switchMap((query) =>
+      this.api.getOrders(query).pipe(
+        map(
+          (response): OrdersRequestState => ({
+            orders: response.data,
+            page: response.page,
+            totalPages: response.totalPages,
+            total: response.total,
+            loading: false,
+            error: null,
+          }),
+        ),
+        startWith<OrdersRequestState>({
+          orders: [],
+          page: query.page,
+          totalPages: 0,
+          total: 0,
+          loading: true,
+          error: null,
+        }),
         catchError(() =>
           of<OrdersRequestState>({
             orders: [],
+            page: query.page,
+            totalPages: 0,
+            total: 0,
             loading: false,
             error: 'Não foi possível carregar os pedidos. Tente novamente.',
           }),
@@ -87,6 +114,9 @@ export class OrdersService {
       orders: ordersState.orders,
       loadingOrders: ordersState.loading,
       ordersError: ordersState.error,
+      page: ordersState.page,
+      totalPages: ordersState.totalPages,
+      total: ordersState.total,
       selectedOrderId,
       selectedOrder: detailState.selectedOrder,
       loadingDetail: detailState.loading,
@@ -94,13 +124,19 @@ export class OrdersService {
     })),
   );
 
+  /** Novo filtro aplicado (via "Filtrar"/"Limpar"): sempre volta pra página 1. */
   updateFilter(filter: OrderFilter): void {
-    this.filter$$.next(filter);
+    this.query$$.next({ ...filter, page: 1, limit: PAGE_SIZE });
+  }
+
+  /** Troca de página, mantendo os critérios de filtro atuais. */
+  goToPage(page: number): void {
+    this.query$$.next({ ...this.query$$.value, page });
   }
 
   /** Refaz a última busca de pedidos (botão "Tentar novamente" do erro). */
   retryOrders(): void {
-    this.filter$$.next(this.filter$$.value);
+    this.query$$.next(this.query$$.value);
   }
 
   selectOrder(id: number): void {

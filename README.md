@@ -47,7 +47,7 @@ API sobe em `http://localhost:3000`. Endpoints:
 - `POST /auth/login`: `{ email, password }` → `{ accessToken }` (ver seção
   [Autenticação](#autenticação); credencial de dev: `admin@festival.com` /
   `festival2026`)
-- `GET /orders?dataInicio&dataFim&valorMin&valorMax&nomeCliente`: lista filtrada (requer `Authorization: Bearer <token>`)
+- `GET /orders?dataInicio&dataFim&valorMin&valorMax&nomeCliente&page&limit`: lista filtrada e paginada (`page`/`limit` opcionais, padrão 1/10) → `{ data, total, page, limit, totalPages }` (requer `Authorization: Bearer <token>`)
 - `GET /orders/:id`: detalhe do pedido (itens + comprador) (idem)
 - `GET /health`: healthcheck
 - `GET /docs`: documentação interativa (Swagger UI)
@@ -168,7 +168,20 @@ via SQL. O valor total do pedido é uma soma agregada sobre `order_item`
 (`quantidade * valor_unitario_praticado`), não uma coluna própria de
 `Pedido`. O repositório busca os pedidos já filtrados por data/cliente via
 Prisma, o `OrdersService` calcula o total via `OrderEntity.valorTotal`
-(regra de domínio) e só então aplica o filtro de faixa. 
+(regra de domínio) e só então aplica o filtro de faixa.
+
+A paginação (`page`/`limit`, padrão 1/10) acontece logo depois, no mesmo
+passo em memória: como o filtro de valor já não é feito via SQL, `total` e
+`totalPages` (`GET /orders` devolve `{ data, total, page, limit, totalPages }`)
+precisam refletir o resultado já filtrado por data, cliente e valor, não o
+total geral de pedidos, então fatiar (`slice`) o array final foi mais simples
+e correto do que tentar paginar só a consulta ao Prisma e filtrar valor
+depois (o que devolveria páginas com menos itens do que o `limit` pedido).
+Testei isso na prática rodando um `EXPLAIN ANALYZE` comparando as duas
+abordagens (ver seção de índices) antes de decidir; a diferença de
+performance entre agregar no banco (`HAVING`) ou em memória só compensa a
+partir de um volume que este teste não tem, e paginar depois do filtro de
+valor evita esse problema por completo.
 
 Pra dinheiro, usei `decimal.js` em vez de `number` puro: `OrderItemEntity`/
 `OrderEntity` fazem toda a matemática (subtotal, soma do total, comparação
@@ -270,6 +283,16 @@ combinando listagem e detalhe, montado com `combineLatest` + `switchMap` +
 stream de estado (dado/loading/erro), em vez de vários `BehaviorSubject`s se
 atualizando uns aos outros, o que evita condições de corrida e emissões
 duplicadas dentro do `combineLatest`.
+
+A paginação entra nesse mesmo `vm$`: `OrdersService` guarda um
+`OrdersQuery` (filtro + `page`/`limit`) num único `BehaviorSubject`, em vez
+de um segundo estado separado pra página atual, porque trocar de página é
+conceitualmente "a mesma busca, com outro parâmetro" e não um evento
+independente. `updateFilter()` sempre volta pra página 1 (novo filtro,
+resultado diferente); `goToPage()` só troca o número da página, mantendo o
+resto do filtro. O componente `Pagination` (`shared/components/pagination/`)
+é "burro" como os outros dessa pasta: só recebe `page`/`totalPages` e emite
+`pageChange`, sem saber nada de HTTP.
 
 Escrevi toda a interface (`styles.scss` + SCSS por componente, metodologia
 BEM) do zero, com design tokens via CSS custom properties (`--color-primary`,

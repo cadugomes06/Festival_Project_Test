@@ -1,0 +1,21 @@
+<nav class="pagination" aria-label="Paginação da listagem de pedidos">
+  <button
+    class="pagination__button"
+    type="button"
+    [disabled]="isFirstPage()"
+    (click)="previous()"
+  >
+    ← Anterior
+  </button>
+
+  <span class="pagination__label">Página {{ page() }} de {{ totalPages() }}</span>
+
+  <button
+    class="pagination__button"
+    type="button"
+    [disabled]="isLastPage()"
+    (click)="next()"
+  >
+    Próxima →
+  </button>
+</nav>

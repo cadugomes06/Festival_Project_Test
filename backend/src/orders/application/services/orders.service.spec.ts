@@ -1,11 +1,17 @@
 import { NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { FilterOrdersDto } from '../dto/filter-orders.dto';
 import {
   OrdersFilter,
   OrdersRepository,
   PedidoComRelacoes,
 } from '../interfaces/orders.repository';
 import { OrdersService } from './orders.service';
+
+/** Preenche page/limit com os padrões quando o teste não precisa deles. */
+function criarFiltro(overrides: Partial<FilterOrdersDto> = {}): FilterOrdersDto {
+  return { page: 1, limit: 10, ...overrides };
+}
 
 function criarPedido(overrides: {
   id: number;
@@ -93,10 +99,10 @@ describe('OrdersService', () => {
     const repository = new FakeOrdersRepository([pedidoBarato]);
     const service = new OrdersService(repository);
 
-    await service.filterOrders({
+    await service.filterOrders(criarFiltro({
       dataInicio: '2026-08-01',
       nomeCliente: 'Ana',
-    });
+    }));
 
     expect(repository.lastFilter?.dataInicio).toEqual(
       new Date('2026-08-01T00:00:00-03:00'),
@@ -108,7 +114,7 @@ describe('OrdersService', () => {
     const repository = new FakeOrdersRepository([pedidoBarato]);
     const service = new OrdersService(repository);
 
-    await service.filterOrders({ dataFim: '2026-08-31' });
+    await service.filterOrders(criarFiltro({ dataFim: '2026-08-31' }));
 
     // Sem fixar o fuso -03:00, um pedido feito às 22h (local) de
     // "2026-08-31" (= 2026-09-01T01:00:00Z) ficaria de fora do filtro,
@@ -122,11 +128,34 @@ describe('OrdersService', () => {
     const repository = new FakeOrdersRepository([pedidoBarato, pedidoCaro]);
     const service = new OrdersService(repository);
 
-    const resultado = await service.filterOrders({ valorMin: 20 });
+    const resultado = await service.filterOrders(criarFiltro({ valorMin: 20 }));
 
-    expect(resultado).toHaveLength(1);
-    expect(resultado[0].id).toBe(pedidoCaro.id);
-    expect(resultado[0].valorTotal).toBe(60);
+    expect(resultado.total).toBe(1);
+    expect(resultado.data).toHaveLength(1);
+    expect(resultado.data[0].id).toBe(pedidoCaro.id);
+    expect(resultado.data[0].valorTotal).toBe(60);
+  });
+
+  it('pagina o resultado já filtrado, sem contar itens fora da faixa de valor no total', async () => {
+    const pedidos = [pedidoBarato, pedidoCaro, criarPedido({
+      id: 3,
+      nomeCliente: 'Carla Nunes',
+      itens: [{ itemId: 3, nome: 'Hambúrguer Artesanal', quantidade: 1, valorUnitarioPraticado: 28 }],
+    })];
+    const repository = new FakeOrdersRepository(pedidos);
+    const service = new OrdersService(repository);
+
+    // 3 pedidos no total, mas só 2 (o "caro" de 60 e o de 28) passam no
+    // filtro de valor; com limit=1, a página 2 deve trazer o segundo deles.
+    const resultado = await service.filterOrders(
+      criarFiltro({ valorMin: 20, page: 2, limit: 1 }),
+    );
+
+    expect(resultado.total).toBe(2);
+    expect(resultado.totalPages).toBe(2);
+    expect(resultado.page).toBe(2);
+    expect(resultado.data).toHaveLength(1);
+    expect(resultado.data[0].id).toBe(3);
   });
 
   it('lança NotFoundException quando o pedido não existe', async () => {

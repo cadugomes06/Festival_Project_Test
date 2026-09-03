@@ -23,6 +23,35 @@ async function main() {
     }),
   ]);
 
+  // Clientes extras só pra variar os nomes nos 16 pedidos gerados no loop
+  // abaixo (sem isso, ana/bruno/carla/diego repetiriam 6x cada em vez de 2x).
+  const [eduardo, fernanda, gabriel, helena, igor, juliana, lucas, mariana] = await Promise.all([
+    prisma.cliente.create({
+      data: { nome: 'Eduardo Martins', email: 'eduardo.martins@example.com', telefone: '11944443333' },
+    }),
+    prisma.cliente.create({
+      data: { nome: 'Fernanda Costa', email: 'fernanda.costa@example.com', telefone: '11933332222' },
+    }),
+    prisma.cliente.create({
+      data: { nome: 'Gabriel Rocha', email: 'gabriel.rocha@example.com', telefone: '11922221111' },
+    }),
+    prisma.cliente.create({
+      data: { nome: 'Helena Dias', email: 'helena.dias@example.com', telefone: '11911110000' },
+    }),
+    prisma.cliente.create({
+      data: { nome: 'Igor Santos', email: 'igor.santos@example.com', telefone: '11999998888' },
+    }),
+    prisma.cliente.create({
+      data: { nome: 'Juliana Melo', email: 'juliana.melo@example.com', telefone: '11988889999' },
+    }),
+    prisma.cliente.create({
+      data: { nome: 'Lucas Ferreira', email: 'lucas.ferreira@example.com', telefone: '11977778888' },
+    }),
+    prisma.cliente.create({
+      data: { nome: 'Mariana Castro', email: 'mariana.castro@example.com', telefone: '11966667777' },
+    }),
+  ]);
+
   const [cerveja, agua, hamburguer, pastel, camiseta] = await Promise.all([
     prisma.item.create({
       data: { nome: 'Cerveja Long Neck', descricao: 'Long neck 355ml', valorUnitario: 12 },
@@ -143,6 +172,45 @@ async function main() {
       },
     },
   });
+
+  // Mais 16 pedidos gerados de forma determinística (não aleatória, pra o
+  // seed dar sempre o mesmo resultado), só pra ter volume suficiente e
+  // exercitar a paginação da listagem (24 pedidos no total, 3 páginas com
+  // o limit padrão de 10). Usa só os 8 clientes extras (2x cada) pra não
+  // repetir ana/bruno/carla/diego, que já aparecem 2x nos pedidos acima.
+  const clientes = [eduardo, fernanda, gabriel, helena, igor, juliana, lucas, mariana];
+  const itens = [cerveja, agua, hamburguer, pastel, camiseta];
+  const dias = ['2026-08-30', '2026-08-31', '2026-09-01', '2026-09-02', '2026-09-03'];
+
+  for (let i = 0; i < 16; i++) {
+    const cliente = clientes[i % clientes.length];
+    const itemA = itens[i % itens.length];
+    const itemB = itens[(i + 2) % itens.length];
+    const dia = dias[i % dias.length];
+    const hora = String(8 + (i % 12)).padStart(2, '0');
+    const minuto = String((i % 4) * 15).padStart(2, '0');
+
+    await prisma.pedido.create({
+      data: {
+        data: new Date(`${dia}T${hora}:${minuto}:00Z`),
+        clienteId: cliente.id,
+        itens: {
+          create: [
+            {
+              itemId: itemA.id,
+              quantidade: (i % 3) + 1,
+              valorUnitarioPraticado: itemA.valorUnitario,
+            },
+            {
+              itemId: itemB.id,
+              quantidade: (i % 2) + 1,
+              valorUnitarioPraticado: itemB.valorUnitario,
+            },
+          ],
+        },
+      },
+    });
+  }
 
   console.log('Seed concluído.');
 }

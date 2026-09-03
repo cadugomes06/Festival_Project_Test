@@ -5,6 +5,7 @@ import { OrderItemEntity } from '../../domain/entities/order-item.entity';
 import { FilterOrdersDto } from '../dto/filter-orders.dto';
 import { OrderDetailDto } from '../dto/order-detail.dto';
 import { OrderSummaryDto } from '../dto/order-summary.dto';
+import { PaginatedOrdersDto } from '../dto/paginated-orders.dto';
 import {
   ORDERS_REPOSITORY,
   OrdersRepository,
@@ -23,24 +24,21 @@ export class OrdersService {
     private readonly ordersRepository: OrdersRepository,
   ) {}
 
-  async filterOrders(filter: FilterOrdersDto): Promise<OrderSummaryDto[]> {
+  async filterOrders(filter: FilterOrdersDto): Promise<PaginatedOrdersDto> {
     const registros = await this.ordersRepository.findMany({
       dataInicio: filter.dataInicio ? this.inicioDoDia(filter.dataInicio) : undefined,
       dataFim: filter.dataFim ? this.fimDoDia(filter.dataFim) : undefined,
       nomeCliente: filter.nomeCliente,
     });
 
-    return registros
+    const filtrados = registros
       .map((registro) => ({
         order: this.toDomain(registro),
         nomeCliente: registro.cliente.nome,
       }))
-      .filter(({ order }) =>
-        this.dentroDaFaixaDeValor(order.valorTotal, filter),
-      )
-      .map(({ order, nomeCliente }) =>
-        OrderSummaryDto.fromDomain(order, nomeCliente),
-      );
+      .filter(({ order }) => this.dentroDaFaixaDeValor(order.valorTotal, filter));
+
+    return this.paginar(filtrados, filter);
   }
 
   async getOrderById(id: number): Promise<OrderDetailDto> {
@@ -86,6 +84,31 @@ export class OrdersService {
       return false;
     }
     return true;
+  }
+
+  /**
+   * Paginação em memória, no mesmo passo em que o filtro de valor já
+   * acontece (ver comentário de `dentroDaFaixaDeValor` sobre por que esse
+   * filtro não é feito via SQL). `total`/`totalPages` refletem o resultado
+   * já filtrado por data, cliente e valor — não o total geral de pedidos.
+   */
+  private paginar(
+    filtrados: { order: OrderEntity; nomeCliente: string }[],
+    filter: FilterOrdersDto,
+  ): PaginatedOrdersDto {
+    const { page, limit } = filter;
+    const total = filtrados.length;
+    const inicio = (page - 1) * limit;
+
+    const dto = new PaginatedOrdersDto();
+    dto.data = filtrados
+      .slice(inicio, inicio + limit)
+      .map(({ order, nomeCliente }) => OrderSummaryDto.fromDomain(order, nomeCliente));
+    dto.total = total;
+    dto.page = page;
+    dto.limit = limit;
+    dto.totalPages = Math.ceil(total / limit);
+    return dto;
   }
 
   /**

@@ -71,14 +71,47 @@ describe('AppController (e2e)', () => {
       .set('Authorization', `Bearer ${accessToken}`)
       .expect(200);
 
-    expect(Array.isArray(ordersResponse.body)).toBe(true);
-    expect(ordersResponse.body.length).toBeGreaterThan(0);
-    expect(ordersResponse.body[0]).toEqual({
+    expect(ordersResponse.body).toMatchObject({
+      total: expect.any(Number),
+      page: 1,
+      limit: 10,
+      totalPages: expect.any(Number),
+    });
+    expect(Array.isArray(ordersResponse.body.data)).toBe(true);
+    expect(ordersResponse.body.data.length).toBeGreaterThan(0);
+    expect(ordersResponse.body.data[0]).toEqual({
       id: expect.any(Number),
       data: expect.any(String),
       nomeCliente: expect.any(String),
       valorTotal: expect.any(Number),
     });
+  });
+
+  it('/orders (GET) pagina com page/limit', async () => {
+    const configService = app.get(ConfigService);
+    const adminEmail = configService.get<string>('ADMIN_EMAIL');
+
+    const loginResponse = await request(app.getHttpServer())
+      .post('/auth/login')
+      .send({ email: adminEmail, password: adminPassword });
+    const { accessToken } = loginResponse.body;
+
+    const pagina1 = await request(app.getHttpServer())
+      .get('/orders?page=1&limit=1')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .expect(200);
+
+    expect(pagina1.body.data).toHaveLength(1);
+    expect(pagina1.body.limit).toBe(1);
+    expect(pagina1.body.totalPages).toBeGreaterThan(1);
+
+    const pagina2 = await request(app.getHttpServer())
+      .get('/orders?page=2&limit=1')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .expect(200);
+
+    expect(pagina2.body.data).toHaveLength(1);
+    expect(pagina2.body.data[0].id).not.toBe(pagina1.body.data[0].id);
   });
 
   it('/orders/:id (GET) retorna o detalhe do pedido (itens + comprador)', async () => {
@@ -93,7 +126,7 @@ describe('AppController (e2e)', () => {
     const ordersResponse = await request(app.getHttpServer())
       .get('/orders')
       .set('Authorization', `Bearer ${accessToken}`);
-    const [primeiroPedido] = ordersResponse.body;
+    const [primeiroPedido] = ordersResponse.body.data;
 
     const detailResponse = await request(app.getHttpServer())
       .get(`/orders/${primeiroPedido.id}`)
