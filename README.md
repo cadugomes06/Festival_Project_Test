@@ -163,23 +163,12 @@ específico do Nest aqui: como interfaces TypeScript não existem em tempo de
 execução, o token de injeção precisa ser um `Symbol` (`ORDERS_REPOSITORY`),
 que é o padrão documentado no guia de "Custom providers" do Nest.
 
-O enunciado lista "valor" como um dos filtros, sem especificar se é um valor
-exato ou uma faixa. Interpretei como uma faixa (`valorMin`/`valorMax`, ambos
-opcionais e combináveis), seguindo o mesmo padrão do filtro de data
-(início/fim), e pareceu a leitura mais útil pra uma tela de filtros e a mais
-fácil de defender.
-
 Uma decisão que vale destacar: o filtro por valor é aplicado em memória, não
 via SQL. O valor total do pedido é uma soma agregada sobre `order_item`
 (`quantidade * valor_unitario_praticado`), não uma coluna própria de
 `Pedido`. O repositório busca os pedidos já filtrados por data/cliente via
 Prisma, o `OrdersService` calcula o total via `OrderEntity.valorTotal`
-(regra de domínio) e só então aplica o filtro de faixa. Pro volume de dados
-de um teste técnico isso é suficiente, e mantém o cálculo do total num único
-lugar (o domínio). Num cenário de produção com grande volume, o próximo
-passo seria mover esse filtro pra um `HAVING` SQL agregado direto no
-repositório, e deixei esse trade-off documentado também em
-`orders.service.ts`.
+(regra de domínio) e só então aplica o filtro de faixa. 
 
 Pra dinheiro, usei `decimal.js` em vez de `number` puro: `OrderItemEntity`/
 `OrderEntity` fazem toda a matemática (subtotal, soma do total, comparação
@@ -218,21 +207,9 @@ qualquer API HTTP.
 
 ## Autenticação
 
-O enunciado trata login como opcional ("não priorizar às custas do resto").
-Com os requisitos obrigatórios já prontos e testados, decidi adicionar um
-login com JWT como diferencial: foi uma escolha consciente de escopo, não
-algo que ficou faltando.
-
 Optei por uma credencial única fixa em vez de uma tabela de usuários, porque
 o domínio deste teste (Cliente/Item/Pedido) não tem conceito de
-usuário/autenticação, e criar uma entidade `User` só pra proteger a tela
-seria escopo extra sem necessidade real, algo que o próprio enunciado do
-teste pede pra evitar ("não introduzir ferramentas porque é desejável, sem
-justificativa"). O backend valida contra `ADMIN_EMAIL`/`ADMIN_PASSWORD_HASH`
-(variáveis de ambiente), e fiz questão de que a senha nunca ficasse em texto
-puro, nem no `.env`: o que fica armazenado é o hash bcrypt (usei `bcryptjs`,
-a versão pura em JS, que não exige toolchain de compilação nativa como o
-pacote `bcrypt` original), comparado com `bcrypt.compare` a cada login.
+usuário/autenticação, desenvolvi apenas um login simples e direto.
 
 Pra implementar, usei Passport + `@nestjs/jwt` (`src/auth/`), que é o padrão
 documentado do próprio Nest: `POST /auth/login` valida a credencial e assina
@@ -255,8 +232,7 @@ consistente.
 
 Pra rodar localmente, o login de desenvolvimento (`backend/.env.example`) é
 `admin@festival.com` / `festival2026`, que vale só pra rodar o projeto neste
-teste; a ideia é trocar `ADMIN_PASSWORD_HASH` (e `JWT_SECRET`) antes de
-qualquer uso além disso.
+teste.
 
 Assumi algumas limitações conscientemente: sem refresh token, sem múltiplos
 usuários, sem "lembrar-me". O JWT expira (`JWT_EXPIRES_IN`, 1h por padrão) e
@@ -287,31 +263,17 @@ orders/   a feature em si: OrdersApiService (HTTP puro), OrdersService (estado
           reativo), e os componentes (filtros, listagem, modal, página).
 ```
 
-Usei standalone components, sem NgModules: desde a v17 o próprio `ng
-generate` não cria mais `NgModule`s por padrão, e standalone é o jeito
-atual e recomendado pela documentação oficial do Angular. A organização
-"por feature" pedida continua a mesma, só sem o arquivo de módulo. *(Isso é
-específico do Angular/da versão: quem aprendeu Angular com NgModules vai
-notar essa diferença de sintaxe, mas o princípio de separação por feature é
-o mesmo.)*
-
-Pro estado, fiquei só com RxJS puro em serviço, sem NgRx: `OrdersService`
+Pro estado, fiquei só com RxJS puro em serviç: `OrdersService`
 (em `orders/orders.service.ts`) expõe um único `vm$` (view model)
 combinando listagem e detalhe, montado com `combineLatest` + `switchMap` +
 `startWith` + `catchError`. Modelei cada requisição assíncrona como *um*
 stream de estado (dado/loading/erro), em vez de vários `BehaviorSubject`s se
 atualizando uns aos outros, o que evita condições de corrida e emissões
-duplicadas dentro do `combineLatest` (aliás, encontrei esse bug rodando os
-testes: múltiplos subjects se mutuando causavam um
-`ExpressionChangedAfterItHasBeenCheckedError`). *(Esse é um padrão
-específico de RxJS, não do Angular em si: o mesmo raciocínio vale em
-qualquer app reativo.)*
+duplicadas dentro do `combineLatest`.
 
 Escrevi toda a interface (`styles.scss` + SCSS por componente, metodologia
 BEM) do zero, com design tokens via CSS custom properties (`--color-primary`,
-`--radius-md`, etc.), sem Bootstrap ou Material, porque queria evitar o
-visual de fábrica dessas libs sem precisar de uma camada extra de
-customização por cima.
+`--radius-md`, etc.).
 
 Pra responsividade, a tabela de pedidos (`order-list`) usa a mesma marcação
 HTML em qualquer largura de tela; abaixo de 720px, o CSS transforma cada
@@ -323,32 +285,12 @@ Fixei o `LOCALE_ID` em `pt-BR` e chamei `registerLocaleData(localePt)` em
 `app.config.ts`, pra que `CurrencyPipe`/`DatePipe` formatem como `R$ 75,00`
 em vez do padrão `en-US` (`R$75.00`) do Angular.
 
-Não criei `environment.ts`/`environment.prod.ts` porque o CLI atual não
-gera mais esses arquivos por padrão em projetos novos, e como este teste tem
-um único ambiente de deploy, mantive a URL da API como uma constante simples
-(`core/config/api.config.ts`). Reintroduzir os arquivos de environment com
-`fileReplacements` no `angular.json` seria o caminho idiomático se o
-projeto precisasse de múltiplos ambientes.
-
 Sobre cache de build: `outputHashing: "all"` já vem ativo por padrão na
 configuração de produção do Angular CLI atual (`angular.json` →
 `architect.build.configurations.production`). Confirmei que estava lá, não
 precisei ajustar nada manualmente.
 
----
-
-## O que não implementei (e por quê)
-
-- **Redis**: não vi necessidade real de cache pro volume de dados de um
-  teste técnico; adicionar aumentaria a superfície da aplicação sem um
-  problema concreto pra justificar.
-- **NgRx**: o estado da tela (filtro + listagem + seleção) é simples o
-  suficiente pra um serviço com RxJS, ver a seção de arquitetura do
-  frontend.
-- **CRUD de Cliente/Item**: o enunciado pede visualização de pedidos, não
-  gestão de clientes/itens; eles só existem como dados de apoio (seed) e
-  aparecem apenas através do pedido (listagem e detalhe).
 
 ## Currículo
 
-`CV_CarlosEduardo.pdf`, na raiz do repositório (requisito 6).
+`CV_CarlosEduardo.pdf`, na raiz do repositório.
