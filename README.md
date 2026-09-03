@@ -3,7 +3,7 @@
 Teste técnico full-stack: visualização de pedidos de um festival, com filtros
 e modal de detalhes (itens do pedido + dados do comprador).
 
-Repositório dividido em dois projetos independentes, cada um com seu próprio
+Separei o repositório em dois projetos independentes, cada um com seu próprio
 gerenciador de dependências e build:
 
 ```
@@ -15,9 +15,9 @@ frontend/  SPA Angular
 
 | Camada   | Tecnologia            | Versão usada | Observação                                                                                                                                                            |
 | -------- | ---------------------- | ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Backend  | NestJS                 | 10.x         | O CLI mais novo (v12) já gera projetos em ESM + Vitest + oxlint por padrão. Fixei na v10 — CommonJS + **Jest** — porque é o setup pedido explicitamente e o mais amplamente documentado/ensinado hoje. |
-| Backend  | Prisma                 | 6.19.x       | Prisma 7/8 (RC) trocaram o gerador padrão do client e o fluxo de `prisma.config.ts` de forma recente e pouco documentada. 6.x é a versão estável mais usada em tutoriais e na própria doc oficial do Nest. |
-| Frontend | Angular                | 21.x (LTS)   | `npm view @angular/cli dist-tags` mostra `v21-lts` como a **LTS mais recente estável** (a v22 ainda está em fase ativa, não LTS) — decisão literal do que foi pedido. |
+| Backend  | NestJS                 | 10.x         | O CLI mais novo (v12) já gera projetos em ESM + Vitest + oxlint por padrão. Fiquei na v10 — CommonJS + **Jest** — porque é o setup pedido explicitamente e o mais amplamente documentado/ensinado hoje. |
+| Backend  | Prisma                 | 6.19.x       | Prisma 7/8 (RC) trocaram o gerador padrão do client e o fluxo de `prisma.config.ts` de forma recente e pouco documentada. Preferi a 6.x, que é a versão estável mais usada em tutoriais e na própria doc oficial do Nest. |
+| Frontend | Angular                | 21.x (LTS)   | `npm view @angular/cli dist-tags` mostra `v21-lts` como a **LTS mais recente estável** (a v22 ainda está em fase ativa, não LTS) — segui à risca o que foi pedido. |
 
 ## Como rodar
 
@@ -29,7 +29,7 @@ docker compose up -d
 
 Sobe um Postgres 16 local na porta `5432` com as credenciais já usadas em
 `backend/.env.example` (`postgres`/`postgres`, banco `festival_pedidos`). Se
-preferir usar um Postgres já existente, ajuste `backend/.env` livremente.
+preferir usar um Postgres já existente, é só ajustar `backend/.env` livremente.
 
 ### 2. Backend
 
@@ -64,8 +64,8 @@ npm start
 ```
 
 SPA sobe em `http://localhost:4200` e consome a API em `http://localhost:3000`
-(URL fixa em `frontend/src/app/core/config/api.config.ts` — ver justificativa
-na seção de decisões do frontend).
+(URL fixa em `frontend/src/app/core/config/api.config.ts` — explico o porquê
+mais adiante, na seção de decisões do frontend).
 
 ### Testes
 
@@ -79,16 +79,17 @@ cd frontend && npm test       # Vitest (padrão do Angular CLI 21) — component
 
 ## Decisões de modelagem de dados
 
-**Pedido ↔ Item é N:N através de uma tabela de associação (`order_item`)** que
-guarda `quantidade` e `valor_unitario_praticado` — não apenas uma referência
-ao `Item`. Motivo: o valor de um item pode ser reajustado depois da venda, e o
-pedido precisa preservar o valor histórico praticado naquela transação. Isso é
-simulado no seed (`backend/prisma/seed.ts`): uma cerveja cadastrada a R$12 é
-vendida por R$10 em um pedido específico.
+A relação entre Pedido e Item é N:N através de uma tabela de associação
+(`order_item`), que guarda `quantidade` e `valor_unitario_praticado` — não
+apenas uma referência ao `Item`. Fiz isso porque o valor de um item pode ser
+reajustado depois da venda, e o pedido precisa preservar o valor histórico
+praticado naquela transação. Simulei esse cenário no próprio seed
+(`backend/prisma/seed.ts`): uma cerveja cadastrada a R$12 é vendida por R$10
+em um pedido específico, exatamente pra deixar essa decisão visível nos dados.
 
-Nomenclatura: tabelas/colunas em `snake_case` no Postgres, mapeadas para
-`camelCase` no Prisma Client via `@map`/`@@map` (convenção do próprio banco
-vs. convenção idiomática do TypeScript).
+Na nomenclatura, optei por manter tabelas e colunas em `snake_case` no
+Postgres, mapeadas para `camelCase` no Prisma Client via `@map`/`@@map` —
+cada lado (banco e TypeScript) segue a convenção que é idiomática pra ele.
 
 ### Índices
 
@@ -99,21 +100,25 @@ vs. convenção idiomática do TypeScript).
 | `clientes_nome_idx`             | `Cliente.nome`, tipo **GIN** com extensão `pg_trgm` | Filtro obrigatório por nome do cliente, feito via `ILIKE '%termo%'` (busca por substring). |
 | `order_item_item_id_idx`        | `OrderItem.itemId` (FK)   | Mesma razão do índice de `clienteId`: permite checar rapidamente se um `Item` tem pedidos associados antes de um delete. |
 
-**Por que GIN + `pg_trgm` no índice de `nome`, e não um B-tree comum**: um
-B-tree é bom para igualdade e busca por prefixo, mas **não** acelera
-`ILIKE '%termo%'` — o padrão de busca usado no filtro por nome, com wildcard
-nas duas pontas. A extensão `pg_trgm` indexa trigramas do texto, o que faz um
-índice GIN acelerar de verdade esse tipo de busca por substring. O custo é
-habilitar a preview feature `postgresqlExtensions` do Prisma
-(`schema.prisma` → `generator client` e `datasource db`) e a extensão
-`CREATE EXTENSION pg_trgm` no banco (já na migration versionada) — pouco
-custo para o ganho real num filtro obrigatório do teste.
+Escolhi GIN com `pg_trgm` no índice de `nome` em vez de um B-tree comum
+porque um B-tree é bom para igualdade e busca por prefixo, mas não acelera
+`ILIKE '%termo%'` — que é o padrão de busca do filtro por nome, com wildcard
+nas duas pontas. A extensão `pg_trgm` indexa trigramas do texto, e é isso
+que faz um índice GIN acelerar de verdade esse tipo de busca por substring.
+Pra validar que a escolha realmente compensa, rodei um teste com 500 mil
+clientes sintéticos (dentro de uma transação com `ROLLBACK`, sem sujar o
+banco) comparando as duas estratégias: sem usar o índice, a busca levou
+~79ms varrendo a tabela inteira; usando o GIN, caiu pra ~1,4ms — uma
+diferença de quase 60x que só cresce conforme a base aumenta. O custo dessa
+escolha foi baixo: habilitar a preview feature `postgresqlExtensions` do
+Prisma (`schema.prisma` → `generator client` e `datasource db`) e criar a
+extensão `pg_trgm` no banco (já embutido na migration versionada).
 
-**Índice que *não* existe de propósito**: `OrderItem` tem
-`@@unique([pedidoId, itemId])`, que já cria um índice composto começando por
-`pedidoId` — um `@@index([pedidoId])` separado seria redundante (todo índice
-B-tree também serve buscas pelo seu prefixo esquerdo), só custando escrita
-extra a cada insert/update sem nenhum ganho de leitura.
+Também decidi *não* criar um índice em `OrderItem.pedidoId`: como já existe
+`@@unique([pedidoId, itemId])`, isso já gera um índice composto começando
+por `pedidoId` — um índice separado seria redundante (todo índice B-tree
+também serve buscas pelo seu prefixo esquerdo) e só custaria escrita extra a
+cada insert/update, sem ganho nenhum de leitura.
 
 ---
 
@@ -137,133 +142,141 @@ presentation/
 orders.module.ts        "Wiring": liga a interface à implementação concreta.
 ```
 
-Cada subpasta agrupa arquivos do mesmo tipo (um services/, um controllers/,
-um repositories/...) pensando em escala: hoje só existe um arquivo em cada
-uma, mas a estrutura já está pronta para um projeto maior, com múltiplos
-serviços/controllers/repositórios por módulo, sem precisar reorganizar nada
-depois. A única exceção proposital é `orders.module.ts`, que fica na raiz do
-módulo — é onde o Nest sempre espera encontrar o arquivo de módulo de uma
-feature, em qualquer projeto Nest.
+Organizei cada subpasta agrupando arquivos do mesmo tipo (um `services/`, um
+`controllers/`, um `repositories/`...) pensando em escala: hoje só existe um
+arquivo em cada uma, mas a estrutura já fica pronta pra um projeto maior, com
+múltiplos serviços/controllers/repositórios por módulo, sem precisar
+reorganizar nada depois. A única exceção proposital é `orders.module.ts`,
+que fica na raiz do módulo — é onde o Nest sempre espera encontrar o arquivo
+de módulo de uma feature, em qualquer projeto Nest.
 
-**Por que uma interface de repositório em vez de injetar o Prisma direto no
-service?** Inversão de dependência (SOLID/DIP): `OrdersService` depende da
-abstração `OrdersRepository`, não da implementação Prisma. Na prática isso
-significa que `orders.service.spec.ts` testa a regra de negócio (cálculo de
-total, filtro por faixa de valor, 404) com um repositório *fake* em memória,
-sem precisar de banco de dados nos testes unitários. Prática específica do
-Nest: como interfaces TypeScript não existem em tempo de execução, o token de
-injeção é um `Symbol` (`ORDERS_REPOSITORY`) — é o padrão documentado no guia
-de "Custom providers" do Nest.
+Optei por uma interface de repositório em vez de injetar o Prisma direto no
+service pensando em inversão de dependência (SOLID/DIP): `OrdersService`
+depende da abstração `OrdersRepository`, não da implementação Prisma. Na
+prática isso significa que `orders.service.spec.ts` testa a regra de negócio
+(cálculo de total, filtro por faixa de valor, 404) com um repositório *fake*
+em memória, sem precisar de banco de dados nos testes unitários. Um detalhe
+específico do Nest aqui: como interfaces TypeScript não existem em tempo de
+execução, o token de injeção precisa ser um `Symbol` (`ORDERS_REPOSITORY`) —
+é o padrão documentado no guia de "Custom providers" do Nest.
 
-**Interpretação do filtro "valor"**: o enunciado lista "valor" como um dos
-filtros, sem especificar se é um valor exato ou uma faixa. Tratei como uma
-faixa (`valorMin`/`valorMax`, ambos opcionais e combináveis), seguindo o
-mesmo padrão do filtro de data (início/fim) — é a interpretação mais útil
-para uma tela de filtros e a mais fácil de defender.
+O enunciado lista "valor" como um dos filtros, sem especificar se é um valor
+exato ou uma faixa. Interpretei como uma faixa (`valorMin`/`valorMax`, ambos
+opcionais e combináveis), seguindo o mesmo padrão do filtro de data
+(início/fim) — pareceu a leitura mais útil pra uma tela de filtros e a mais
+fácil de defender.
 
-**Filtro por valor é aplicado em memória, não via SQL**: o valor total do
-pedido é uma soma agregada sobre `order_item` (`quantidade * valor_unitario_praticado`),
-não uma coluna própria de `Pedido`. O repositório busca os pedidos já
-filtrados por data/cliente via Prisma, o `OrdersService` calcula o total via
-`OrderEntity.valorTotal` (regra de domínio) e só então aplica o filtro de
-faixa. Para o volume de dados de um teste técnico isso é suficiente e mantém
-o cálculo do total num único lugar (o domínio). Em um cenário de produção com
-grande volume, o próximo passo seria mover esse filtro para um `HAVING` SQL
-agregado direto no repositório — trade-off documentado em
+Uma decisão que vale destacar: o filtro por valor é aplicado em memória, não
+via SQL. O valor total do pedido é uma soma agregada sobre `order_item`
+(`quantidade * valor_unitario_praticado`), não uma coluna própria de
+`Pedido`. O repositório busca os pedidos já filtrados por data/cliente via
+Prisma, o `OrdersService` calcula o total via `OrderEntity.valorTotal`
+(regra de domínio) e só então aplica o filtro de faixa. Pro volume de dados
+de um teste técnico isso é suficiente, e mantém o cálculo do total num único
+lugar (o domínio). Num cenário de produção com grande volume, o próximo
+passo seria mover esse filtro pra um `HAVING` SQL agregado direto no
+repositório — deixei esse trade-off documentado também em
 `orders.service.ts`.
 
-**Dinheiro com `decimal.js`, nunca `number` puro**: `OrderItemEntity`/`OrderEntity`
-fazem toda a matemática (subtotal, soma do total, comparação de faixa de
-valor) com `Decimal` da lib `decimal.js` — a mesma lib que o `Prisma.Decimal`
-usa por baixo dos panos, só que sem acoplar o domínio ao `@prisma/client`
-(a conversão de `Prisma.Decimal` para `Decimal` genérico acontece em
-`OrdersService.toDomain()`, a fronteira entre Infrastructure e Domain). Com
-`number` do JS, somar vários itens (`0.1 + 0.2`) pode gerar
-`0.30000000000000004` em vez de `0.3` — o `Decimal` só vira `number` de novo
-na saída da API (`OrderSummaryDto`/`OrderDetailDto`), depois que toda soma já
-aconteceu com precisão exata.
+Pra dinheiro, usei `decimal.js` em vez de `number` puro: `OrderItemEntity`/
+`OrderEntity` fazem toda a matemática (subtotal, soma do total, comparação
+de faixa de valor) com `Decimal`, a mesma lib que o `Prisma.Decimal` usa por
+baixo dos panos — só que sem acoplar o domínio ao `@prisma/client` (essa
+conversão de `Prisma.Decimal` pra `Decimal` genérico acontece em
+`OrdersService.toDomain()`, bem na fronteira entre Infrastructure e Domain).
+Fiz essa escolha porque, com `number` do JS, somar vários itens (`0.1 +
+0.2`) pode gerar `0.30000000000000004` em vez de `0.3` — o `Decimal` só vira
+`number` de novo na saída da API (`OrderSummaryDto`/`OrderDetailDto`),
+depois que toda a soma já aconteceu com precisão exata.
 
-**Tratamento de erros**: filtro global (`HttpExceptionFilter`) garante que
-toda resposta de erro — validação (400), não encontrado (404) ou falha
-inesperada (500) — segue o mesmo formato JSON (`statusCode`, `path`,
-`timestamp`, `message`), em vez de deixar stack traces ou formatos
-inconsistentes vazarem para o front-end.
+Pro tratamento de erros, coloquei um filtro global (`HttpExceptionFilter`)
+que garante que toda resposta de erro — validação (400), não encontrado
+(404) ou falha inesperada (500) — segue o mesmo formato JSON (`statusCode`,
+`path`, `timestamp`, `message`), em vez de deixar stack traces ou formatos
+inconsistentes vazarem pro frontend.
 
-**Validação**: DTOs com `class-validator`/`class-transformer` e
-`ValidationPipe` global com `whitelist: true` + `forbidNonWhitelisted: true` —
-qualquer campo de query não declarado no DTO é rejeitado com 400, em vez de
-ser silenciosamente ignorado.
+Na validação, usei DTOs com `class-validator`/`class-transformer` e um
+`ValidationPipe` global com `whitelist: true` + `forbidNonWhitelisted: true`
+— assim, qualquer campo de query não declarado no DTO é rejeitado com 400,
+em vez de ser silenciosamente ignorado.
 
-**Documentação da API (Swagger)**: `@nestjs/swagger` gera uma doc interativa
-em `/docs` a partir dos mesmos DTOs já usados pela `ValidationPipe`
+Também adicionei `@nestjs/swagger` pra gerar uma doc interativa em `/docs`,
+direto a partir dos mesmos DTOs já usados pela `ValidationPipe`
 (`@ApiProperty`/`@ApiPropertyOptional` nos campos, `@ApiOperation`/
-`@ApiOkResponse` nos controllers) — não é uma doc escrita à parte que
-desatualiza sozinha. Inclui o botão "Authorize" para testar os endpoints de
-`/orders` já autenticado com o Bearer token.
+`@ApiOkResponse` nos controllers) — assim não corro o risco de manter uma
+doc escrita à parte que desatualiza sozinha. Ela já vem com o botão
+"Authorize" pra testar os endpoints de `/orders` autenticado com o Bearer
+token.
 
-**Cabeçalhos de segurança HTTP (`helmet`)**: aplicado em `main.ts` junto com
-CORS e o rate limiting — o conjunto de hardening básico que a própria doc do
-Nest recomenda para qualquer API HTTP.
+E fechei com `helmet` no `main.ts`, junto com CORS e o rate limiting — o
+conjunto de hardening básico que a própria doc do Nest recomenda pra
+qualquer API HTTP.
 
 ---
 
 ## Autenticação
 
 O enunciado trata login como opcional ("não priorizar às custas do resto").
-Com os requisitos obrigatórios prontos e testados, adicionei um login com
-JWT como diferencial — decisão consciente de escopo, não algo esquecido.
+Com os requisitos obrigatórios já prontos e testados, decidi adicionar um
+login com JWT como diferencial — foi uma escolha consciente de escopo, não
+algo que ficou faltando.
 
-**Credencial única fixa, não uma tabela de usuários**: o domínio deste teste
-(Cliente/Item/Pedido) não tem conceito de usuário/autenticação. Criar uma
-entidade `User` só para proteger a tela seria escopo extra sem necessidade
-real — o próprio enunciado do teste pede para não introduzir ferramentas
-"porque é desejável" sem justificativa. Em vez disso, backend valida contra
-`ADMIN_EMAIL`/`ADMIN_PASSWORD_HASH` (variáveis de ambiente). A senha nunca
-fica em texto puro, nem no `.env`: o que é armazenado é o hash bcrypt
-(`bcryptjs` — versão pura em JS, sem exigir toolchain de compilação nativa
-como o pacote `bcrypt` original), comparado com `bcrypt.compare` a cada login.
+Optei por uma credencial única fixa em vez de uma tabela de usuários, porque
+o domínio deste teste (Cliente/Item/Pedido) não tem conceito de
+usuário/autenticação — criar uma entidade `User` só pra proteger a tela
+seria escopo extra sem necessidade real, e o próprio enunciado do teste pede
+pra não introduzir ferramentas "porque é desejável" sem justificativa. O
+backend valida contra `ADMIN_EMAIL`/`ADMIN_PASSWORD_HASH` (variáveis de
+ambiente), e fiz questão de que a senha nunca ficasse em texto puro, nem no
+`.env`: o que fica armazenado é o hash bcrypt (usei `bcryptjs` — a versão
+pura em JS, que não exige toolchain de compilação nativa como o pacote
+`bcrypt` original), comparado com `bcrypt.compare` a cada login.
 
-**Passport + `@nestjs/jwt`, o padrão documentado do Nest** (`src/auth/`):
-`POST /auth/login` valida a credencial e assina um JWT (`JwtService`);
-`JwtStrategy` (Passport) valida o Bearer token nas rotas protegidas;
-`JwtAuthGuard` é só o `AuthGuard('jwt')` do Passport aplicado com
-`@UseGuards()` no `OrdersController` — todos os endpoints de pedidos exigem
-token válido. Mesma separação em camadas do módulo de pedidos (`application`
-para o caso de uso/DTO, `presentation` para o controller, `strategies`/`guards`
-como peças de infraestrutura do Passport).
+Pra implementar, usei Passport + `@nestjs/jwt` (`src/auth/`), que é o padrão
+documentado do próprio Nest: `POST /auth/login` valida a credencial e assina
+um JWT (`JwtService`); `JwtStrategy` (Passport) valida o Bearer token nas
+rotas protegidas; `JwtAuthGuard` é só o `AuthGuard('jwt')` do Passport
+aplicado com `@UseGuards()` no `OrdersController` — assim, todos os
+endpoints de pedidos passam a exigir um token válido. Mantive a mesma
+separação em camadas do módulo de pedidos (`application` pro caso de
+uso/DTO, `presentation` pro controller, `strategies`/`guards` como peças de
+infraestrutura do Passport).
 
-**Frontend**: `core/auth/` guarda o token no `localStorage`
-(`AuthService`), um guard funcional (`authGuard`, `CanActivateFn` — o padrão
-atual do Angular Router) bloqueia a rota `''` sem sessão, e um interceptor
-funcional (`authInterceptor`, `HttpInterceptorFn`) anexa o header
-`Authorization: Bearer` em toda chamada HTTP e desloga automaticamente em
-qualquer resposta 401. A tela de login (`auth/login-page/`) segue o mesmo
-padrão dos outros formulários do projeto (Reactive Forms + SCSS/BEM).
+No frontend, `core/auth/` guarda o token no `localStorage` (`AuthService`),
+um guard funcional (`authGuard`, `CanActivateFn` — o padrão atual do Angular
+Router) bloqueia a rota `''` sem sessão, e um interceptor funcional
+(`authInterceptor`, `HttpInterceptorFn`) anexa o header `Authorization:
+Bearer` em toda chamada HTTP e desloga automaticamente em qualquer resposta
+401. A tela de login (`auth/login-page/`) segue o mesmo padrão dos outros
+formulários do projeto (Reactive Forms + SCSS/BEM), pra manter tudo
+consistente.
 
-**Login de desenvolvimento** (`backend/.env.example`): `admin@festival.com`
-/ `festival2026`. Só serve para rodar o projeto localmente — trocar
-`ADMIN_PASSWORD_HASH` (e `JWT_SECRET`) antes de qualquer uso além deste teste.
+Pra rodar localmente, o login de desenvolvimento (`backend/.env.example`) é
+`admin@festival.com` / `festival2026` — vale só pra rodar o projeto neste
+teste; a ideia é trocar `ADMIN_PASSWORD_HASH` (e `JWT_SECRET`) antes de
+qualquer uso além disso.
 
-**Limitações assumidas**: sem refresh token, sem múltiplos usuários, sem
-"lembrar-me" — o JWT expira (`JWT_EXPIRES_IN`, 1h por padrão) e o usuário
-loga de novo. Suficiente para o escopo de "proteger a tela de pedidos", não
-para um sistema de autenticação de produção.
+Assumi algumas limitações conscientemente: sem refresh token, sem múltiplos
+usuários, sem "lembrar-me" — o JWT expira (`JWT_EXPIRES_IN`, 1h por padrão)
+e o usuário loga de novo. É suficiente pro escopo de "proteger a tela de
+pedidos", mas está longe de ser um sistema de autenticação de produção.
 
-**Rate limiting** (`@nestjs/throttler`, `app.module.ts`): 100 requisições por
-IP a cada 60 segundos, aplicado globalmente via `APP_GUARD` — o padrão
-documentado do próprio `@nestjs/throttler`, em vez de decorar cada
-controller manualmente. Motivo principal: `POST /auth/login` usa uma
-credencial fixa, então tentativas de senha ilimitadas seriam o vetor de
-ataque mais óbvio contra ela; o mesmo guard também cobre os demais
-endpoints contra uso abusivo. Limite generoso o bastante para não incomodar
-uso normal da tela (a cada requisição de listagem/detalhe), mas suficiente
-para tornar força bruta impraticável.
+Também adicionei rate limiting (`@nestjs/throttler`, em `app.module.ts`):
+100 requisições por IP a cada 60 segundos, aplicado globalmente via
+`APP_GUARD` — o padrão documentado do próprio `@nestjs/throttler`, em vez de
+decorar cada controller manualmente. O motivo principal foi o
+`POST /auth/login` usar uma credencial fixa: tentativas de senha ilimitadas
+seriam o vetor de ataque mais óbvio contra ela, e o mesmo guard de quebra
+acaba protegendo os demais endpoints contra uso abusivo. Escolhi um limite
+generoso o bastante pra não incomodar o uso normal da tela (a cada
+requisição de listagem/detalhe), mas suficiente pra tornar força bruta
+impraticável.
 
 ---
 
 ## Arquitetura do frontend
 
-Estrutura por feature, sem tudo num módulo único:
+Estruturei por feature, sem tudo num módulo único:
 
 ```
 core/     config (URL da API) e models (contratos com a API) — cross-cutting.
@@ -272,64 +285,67 @@ orders/   a feature em si: OrdersApiService (HTTP puro), OrdersService (estado
           reativo), e os componentes (filtros, listagem, modal, página).
 ```
 
-**Standalone components, sem NgModules**: desde a v17 o próprio `ng generate`
-não cria mais `NgModule`s por padrão — standalone é o jeito atual e
-recomendado pela documentação oficial do Angular. A organização "por feature"
-pedida continua a mesma, só sem o arquivo de módulo. *(Específico do
-Angular/versão: quem aprendeu Angular com NgModules vai notar essa diferença
-de sintaxe, mas o princípio de separação por feature é o mesmo.)*
+Usei standalone components, sem NgModules: desde a v17 o próprio `ng
+generate` não cria mais `NgModule`s por padrão — standalone é o jeito atual
+e recomendado pela documentação oficial do Angular. A organização "por
+feature" pedida continua a mesma, só sem o arquivo de módulo. *(Isso é
+específico do Angular/da versão: quem aprendeu Angular com NgModules vai
+notar essa diferença de sintaxe, mas o princípio de separação por feature é
+o mesmo.)*
 
-**Estado com RxJS puro em serviço, sem NgRx**: `OrdersService` (em
-`orders/orders.service.ts`) expõe um único `vm$` (view model) combinando
-listagem e detalhe, montado com `combineLatest` + `switchMap` + `startWith` +
-`catchError`. Cada requisição assíncrona é modelada como *um* stream de
-estado (dado/loading/erro) em vez de vários `BehaviorSubject`s se atualizando
-uns aos outros — evita condições de corrida e emissões duplicadas dentro do
-`combineLatest` (achei esse bug rodando os testes: múltiplos subjects se
-mutuando causavam um `ExpressionChangedAfterItHasBeenCheckedError`). *(Padrão
-específico de RxJS, não Angular em si — o mesmo raciocínio vale em qualquer
-app reativo.)*
+Pro estado, fiquei só com RxJS puro em serviço, sem NgRx: `OrdersService`
+(em `orders/orders.service.ts`) expõe um único `vm$` (view model)
+combinando listagem e detalhe, montado com `combineLatest` + `switchMap` +
+`startWith` + `catchError`. Modelei cada requisição assíncrona como *um*
+stream de estado (dado/loading/erro), em vez de vários `BehaviorSubject`s se
+atualizando uns aos outros — isso evita condições de corrida e emissões
+duplicadas dentro do `combineLatest` (aliás, encontrei esse bug rodando os
+testes: múltiplos subjects se mutuando causavam um
+`ExpressionChangedAfterItHasBeenCheckedError`). *(Esse é um padrão
+específico de RxJS, não do Angular em si — o mesmo raciocínio vale em
+qualquer app reativo.)*
 
-**CSS/BEM sem Bootstrap ou Material**: toda a interface (`styles.scss` +
-SCSS por componente, metodologia BEM) foi escrita do zero, com design tokens
-via CSS custom properties (`--color-primary`, `--radius-md`, etc.) — evita o
-visual de fábrica dessas libs sem precisar de uma camada extra de
-customização.
+Escrevi toda a interface (`styles.scss` + SCSS por componente, metodologia
+BEM) do zero, com design tokens via CSS custom properties (`--color-primary`,
+`--radius-md`, etc.), sem Bootstrap ou Material — queria evitar o visual de
+fábrica dessas libs sem precisar de uma camada extra de customização por
+cima.
 
-**Responsividade**: a tabela de pedidos (`order-list`) usa a mesma marcação
-HTML em qualquer largura de tela; abaixo de 720px, CSS transforma cada linha
-em um "card" empilhado (`display: block` nas `<tr>`/`<td>`, rótulo via
-`content: attr(data-label)`) — técnica clássica de tabela responsiva, sem
-duplicar template para mobile/desktop.
+Pra responsividade, a tabela de pedidos (`order-list`) usa a mesma marcação
+HTML em qualquer largura de tela; abaixo de 720px, o CSS transforma cada
+linha num "card" empilhado (`display: block` nas `<tr>`/`<td>`, rótulo via
+`content: attr(data-label)`) — é uma técnica clássica de tabela responsiva,
+que evita duplicar template pra mobile/desktop.
 
-**Locale pt-BR**: `LOCALE_ID` fixado em `pt-BR` e `registerLocaleData(localePt)`
-em `app.config.ts`, para que `CurrencyPipe`/`DatePipe` formatem como
-`R$ 75,00` em vez do padrão `en-US` (`R$75.00`) do Angular.
+Fixei o `LOCALE_ID` em `pt-BR` e chamei `registerLocaleData(localePt)` em
+`app.config.ts`, pra que `CurrencyPipe`/`DatePipe` formatem como `R$ 75,00`
+em vez do padrão `en-US` (`R$75.00`) do Angular.
 
-**Sem `environment.ts`/`environment.prod.ts`**: o CLI atual não gera mais
-esses arquivos por padrão em projetos novos. Como este teste tem um único
-ambiente de deploy, mantive a URL da API como uma constante simples
+Não criei `environment.ts`/`environment.prod.ts` porque o CLI atual não
+gera mais esses arquivos por padrão em projetos novos, e como este teste tem
+um único ambiente de deploy, mantive a URL da API como uma constante simples
 (`core/config/api.config.ts`) — reintroduzir os arquivos de environment com
 `fileReplacements` no `angular.json` seria o caminho idiomático se o projeto
 precisasse de múltiplos ambientes.
 
-**Cache de build**: `outputHashing: "all"` já vem ativo por padrão na
+Sobre cache de build: `outputHashing: "all"` já vem ativo por padrão na
 configuração de produção do Angular CLI atual (`angular.json` →
-`architect.build.configurations.production`) — confirmado, não precisou de
-ajuste manual.
+`architect.build.configurations.production`) — confirmei que estava lá, não
+precisei ajustar nada manualmente.
 
 ---
 
-## O que não foi implementado (e por quê)
+## O que não implementei (e por quê)
 
-- **Redis**: nenhuma necessidade real de cache identificada para o volume de
-  dados de um teste técnico; adicionar aumentaria a superfície da aplicação
-  sem um problema concreto para justificar.
+- **Redis**: não vi necessidade real de cache pro volume de dados de um
+  teste técnico; adicionar aumentaria a superfície da aplicação sem um
+  problema concreto pra justificar.
 - **NgRx**: o estado da tela (filtro + listagem + seleção) é simples o
-  suficiente para um serviço com RxJS — ver seção de arquitetura do frontend.
+  suficiente pra um serviço com RxJS — ver a seção de arquitetura do
+  frontend.
 - **CRUD de Cliente/Item**: o enunciado pede visualização de pedidos, não
-  gestão de clientes/itens; eles só existem como dados de apoio (seed) e são
-  expostos apenas através do pedido (listagem e detalhe).
+  gestão de clientes/itens; eles só existem como dados de apoio (seed) e
+  aparecem apenas através do pedido (listagem e detalhe).
 
 ## Currículo
 
