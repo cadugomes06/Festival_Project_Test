@@ -50,6 +50,7 @@ API sobe em `http://localhost:3000`. Endpoints:
 - `GET /orders?dataInicio&dataFim&valorMin&valorMax&nomeCliente` — lista filtrada (requer `Authorization: Bearer <token>`)
 - `GET /orders/:id` — detalhe do pedido (itens + comprador) (idem)
 - `GET /health` — healthcheck
+- `GET /docs` — documentação interativa (Swagger UI)
 
 Todos os endpoints têm rate limit de 100 req/min por IP (ver seção
 [Autenticação](#autenticação) → Rate limiting).
@@ -70,6 +71,7 @@ na seção de decisões do frontend).
 
 ```bash
 cd backend && npm test        # Jest — regras de negócio (cálculo de total, filtro por valor, casos de erro)
+cd backend && npm run test:e2e # Jest e2e — login, guard, listagem/detalhe/404 via HTTP real (requer o banco de dev rodando e seedado)
 cd frontend && npm test       # Vitest (padrão do Angular CLI 21) — componentes standalone
 ```
 
@@ -191,6 +193,17 @@ inconsistentes vazarem para o front-end.
 `ValidationPipe` global com `whitelist: true` + `forbidNonWhitelisted: true` —
 qualquer campo de query não declarado no DTO é rejeitado com 400, em vez de
 ser silenciosamente ignorado.
+
+**Documentação da API (Swagger)**: `@nestjs/swagger` gera uma doc interativa
+em `/docs` a partir dos mesmos DTOs já usados pela `ValidationPipe`
+(`@ApiProperty`/`@ApiPropertyOptional` nos campos, `@ApiOperation`/
+`@ApiOkResponse` nos controllers) — não é uma doc escrita à parte que
+desatualiza sozinha. Inclui o botão "Authorize" para testar os endpoints de
+`/orders` já autenticado com o Bearer token.
+
+**Cabeçalhos de segurança HTTP (`helmet`)**: aplicado em `main.ts` junto com
+CORS e o rate limiting — o conjunto de hardening básico que a própria doc do
+Nest recomenda para qualquer API HTTP.
 
 ---
 

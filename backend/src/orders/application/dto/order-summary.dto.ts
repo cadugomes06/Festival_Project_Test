@@ -1,3 +1,4 @@
+import { ApiProperty } from '@nestjs/swagger';
 import { OrderEntity } from '../../domain/entities/order.entity';
 
 /**
@@ -6,9 +7,16 @@ import { OrderEntity } from '../../domain/entities/order.entity';
  * a tabela e permitir abrir o modal de detalhes a partir do `id`.
  */
 export class OrderSummaryDto {
+  @ApiProperty({ example: 1 })
   id: number;
+
+  @ApiProperty({ example: '2026-08-12T21:45:00.000Z' })
   data: Date;
+
+  @ApiProperty({ example: 'Ana Souza' })
   nomeCliente: string;
+
+  @ApiProperty({ example: 75 })
   valorTotal: number;
 
   static fromDomain(order: OrderEntity, nomeCliente: string): OrderSummaryDto {

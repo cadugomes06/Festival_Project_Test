@@ -2,10 +2,7 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
-
-export interface AccessTokenResult {
-  accessToken: string;
-}
+import { LoginResponseDto } from '../dto/login-response.dto';
 
 /**
  * Login com uma única credencial fixa (variáveis de ambiente), não uma
@@ -23,7 +20,7 @@ export class AuthService {
     private readonly configService: ConfigService,
   ) {}
 
-  async login(email: string, password: string): Promise<AccessTokenResult> {
+  async login(email: string, password: string): Promise<LoginResponseDto> {
     await this.assertValidCredentials(email, password);
 
     const accessToken = await this.jwtService.signAsync({ sub: email });
