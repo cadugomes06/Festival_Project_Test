@@ -55,11 +55,11 @@
     transition: filter 0.15s ease;
 
     &--primary {
-      background: var(--color-primary);
+      background: var(--gradient-primary);
       color: #fff;
 
       &:hover {
-        filter: brightness(0.95);
+        filter: brightness(1.08);
       }
     }
 
