@@ -7,6 +7,8 @@
 
     <app-order-filters (filterChange)="onFilterChange($event)" />
 
+    <h2 class="orders-page__section-title">Últimos pedidos</h2>
+
     <section class="orders-page__content">
       @if (vm.loadingOrders) {
         <app-loading-spinner label="Carregando pedidos..." />
