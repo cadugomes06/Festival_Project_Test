@@ -43,7 +43,33 @@ async function main() {
 
   await prisma.pedido.create({
     data: {
-      data: new Date('2026-08-10T14:30:00Z'),
+      data: new Date('2026-09-01T10:00:00Z'),
+      clienteId: bruno.id,
+      itens: {
+        create: [
+          { itemId: camiseta.id, quantidade: 2, valorUnitarioPraticado: camiseta.valorUnitario },
+          { itemId: agua.id, quantidade: 1, valorUnitarioPraticado: agua.valorUnitario },
+        ],
+      },
+    },
+  });
+
+  await prisma.pedido.create({
+    data: {
+      data: new Date('2026-09-01T13:00:00Z'),
+      clienteId: diego.id,
+      itens: {
+        create: [
+          { itemId: hamburguer.id, quantidade: 2, valorUnitarioPraticado: hamburguer.valorUnitario },
+          { itemId: agua.id, quantidade: 2, valorUnitarioPraticado: agua.valorUnitario },
+        ],
+      },
+    },
+  });
+
+  await prisma.pedido.create({
+    data: {
+      data: new Date('2026-09-01T14:30:00Z'),
       clienteId: ana.id,
       itens: {
         create: [
@@ -56,7 +82,20 @@ async function main() {
 
   await prisma.pedido.create({
     data: {
-      data: new Date('2026-08-10T18:15:00Z'),
+      data: new Date('2026-09-01T16:30:00Z'),
+      clienteId: carla.id,
+      itens: {
+        create: [
+          { itemId: cerveja.id, quantidade: 3, valorUnitarioPraticado: cerveja.valorUnitario },
+          { itemId: pastel.id, quantidade: 2, valorUnitarioPraticado: pastel.valorUnitario },
+        ],
+      },
+    },
+  });
+
+  await prisma.pedido.create({
+    data: {
+      data: new Date('2026-09-02T18:15:00Z'),
       clienteId: bruno.id,
       itens: {
         create: [
@@ -69,7 +108,7 @@ async function main() {
 
   await prisma.pedido.create({
     data: {
-      data: new Date('2026-08-11T20:00:00Z'),
+      data: new Date('2026-09-02T20:00:00Z'),
       clienteId: carla.id,
       itens: {
         create: [
@@ -84,23 +123,23 @@ async function main() {
 
   await prisma.pedido.create({
     data: {
-      data: new Date('2026-08-12T13:00:00Z'),
-      clienteId: diego.id,
+      data: new Date('2026-09-02T21:45:00Z'),
+      clienteId: ana.id,
       itens: {
-        create: [
-          { itemId: hamburguer.id, quantidade: 2, valorUnitarioPraticado: hamburguer.valorUnitario },
-          { itemId: agua.id, quantidade: 2, valorUnitarioPraticado: agua.valorUnitario },
-        ],
+        create: [{ itemId: pastel.id, quantidade: 5, valorUnitarioPraticado: pastel.valorUnitario }],
       },
     },
   });
 
   await prisma.pedido.create({
     data: {
-      data: new Date('2026-08-12T21:45:00Z'),
-      clienteId: ana.id,
+      data: new Date('2026-09-02T22:15:00Z'),
+      clienteId: diego.id,
       itens: {
-        create: [{ itemId: pastel.id, quantidade: 5, valorUnitarioPraticado: pastel.valorUnitario }],
+        create: [
+          { itemId: hamburguer.id, quantidade: 1, valorUnitarioPraticado: hamburguer.valorUnitario },
+          { itemId: camiseta.id, quantidade: 1, valorUnitarioPraticado: camiseta.valorUnitario },
+        ],
       },
     },
   });
