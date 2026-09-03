@@ -263,7 +263,7 @@ orders/   a feature em si: OrdersApiService (HTTP puro), OrdersService (estado
           reativo), e os componentes (filtros, listagem, modal, página).
 ```
 
-Pro estado, fiquei só com RxJS puro em serviç: `OrdersService`
+Pro estado, fiquei só com RxJS puro em serviço: `OrdersService`
 (em `orders/orders.service.ts`) expõe um único `vm$` (view model)
 combinando listagem e detalhe, montado com `combineLatest` + `switchMap` +
 `startWith` + `catchError`. Modelei cada requisição assíncrona como *um*
